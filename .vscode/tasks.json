@@ -23,7 +23,18 @@
             "kind": "build",
             "isDefault": true
         },
-        "detail": "Runs git add, commit, and push in one task"
-        }
+        "detail": "Update tasks.json"
+        },
+        {
+        "label": "Git Add Commit Push - Add new problem and solutions",
+        "type": "shell",
+        "command": "git add . && git commit -m \"Add new problem and solutions\" && git push",
+        "problemMatcher": [],
+        "group": {
+            "kind": "build",
+            "isDefault": true
+        },
+        "detail": "Add new problem and solutions"
+        },
     ]
 }
