@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pascal's Explorer: Patterns & Properties</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FDFBF7; color: #1F2937; }
+        
+        /* Custom Scrollbar for cleaner look */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+        /* Chart Container Utilities */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px; 
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container { height: 350px; }
+        }
+
+        /* Triangle Cell Transitions */
+        .triangle-cell {
+            transition: all 0.3s ease;
+        }
+        .triangle-cell:hover {
+            transform: scale(1.1);
+            z-index: 10;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Highlight Classes */
+        .highlight-parent { background-color: #93C5FD !important; border-color: #3B82F6 !important; color: white !important; }
+        .highlight-active { background-color: #FCD34D !important; border-color: #F59E0B !important; font-weight: bold; }
+        .pattern-even { background-color: #E2E8F0; color: #94A3B8; }
+        .pattern-odd { background-color: #FCA5A5; color: #7F1D1D; font-weight: bold; }
+    </style>
+    <!-- Chosen Palette: Warm Neutrals (Background), Soft Slate Blue (Primary), Amber (Highlight), Dusty Red (Patterns) -->
+    <!-- Application Structure Plan: 
+         1. Header: Context setting.
+         2. Control & Viz Section: The core interactive triangle. Users control 'numRows' and interact directly with the DOM elements to understand the "Sum of Parents" rule.
+         3. Deep Dive Tabs:
+            - Math: Connects the visuals to the Binomial Coefficient formula found in the report.
+            - Algebra: Shows the Binomial Expansion application.
+            - Analysis: Visualizes the algorithmic complexity and distribution (Bell curve property).
+         4. Why this structure? It moves from the concrete (visual triangle) to the abstract (formulas) and then to the analytical (graphs), mirroring the learning process.
+    -->
+    <!-- Visualization & Content Choices:
+         - Triangle Construction: HTML Flexbox layout. Goal: Inform/Change. Justification: Accessibility and direct DOM interaction (hover effects) are superior to Canvas for the main triangle structure.
+         - Coefficient Distribution Chart: Chart.js Bar Chart. Goal: Inform/Relations. Shows how coefficients mirror a normal distribution as N grows.
+         - Complexity Chart: Chart.js Line Chart. Goal: Analysis. Visualizes the O(N^2) growth mentioned in the report.
+         - Math Rendering: HTML/CSS. Goal: Education. Standard mathematical notation used for clarity.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="antialiased selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Navigation / Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">P</div>
+                <h1 class="text-xl font-bold text-gray-900 tracking-tight">Pascal's Explorer</h1>
+            </div>
+            <div class="text-sm text-gray-500 hidden sm:block">Interactive Report & Analysis</div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+        <!-- Section 1: Introduction & Controls -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1 space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Constructing the Triangle</h2>
+                    <p class="text-gray-600 leading-relaxed">
+                        Pascal's Triangle is a geometric arrangement of numbers where each number is the sum of the two numbers directly above it. This simple additive rule creates a structure packed with profound mathematical properties, from combinatorics to algebra.
+                    </p>
+                    <p class="text-sm text-gray-500 mt-2">
+                        Adjust the rows below to generate the triangle and explore its growth.
+                    </p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <label for="row-slider" class="block text-sm font-medium text-gray-700 mb-2 flex justify-between">
+                        <span>Number of Rows (<span id="row-val-display">5</span>)</span>
+                        <span class="text-blue-600 font-semibold">Max: 15</span>
+                    </label>
+                    <input type="range" id="row-slider" min="1" max="15" value="5" 
+                           class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-700 transition-colors">
+                    
+                    <div class="mt-6 space-y-3">
+                        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Highlight Patterns</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="setPattern('none')" class="pattern-btn active px-3 py-1.5 text-xs font-medium rounded-full border border-gray-300 bg-gray-900 text-white hover:bg-gray-800 transition">None</button>
+                            <button onclick="setPattern('odds')" class="pattern-btn px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-red-600 transition">Odd Numbers</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                    <h3 class="text-blue-900 font-medium text-sm mb-1">Interactive Guide</h3>
+                    <p class="text-blue-700 text-xs">
+                        Hover over any number in the triangle to see its "parents" (the two numbers that sum up to create it).
+                    </p>
+                </div>
+            </div>
+
+            <!-- The Interactive Triangle -->
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-8 overflow-x-auto flex flex-col items-center justify-center min-h-[400px] relative">
+                <div id="triangle-container" class="flex flex-col items-center space-y-2">
+                    <!-- Triangle generated by JS -->
+                </div>
+                <div id="tooltip" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-2 rounded shadow-lg opacity-0 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                    Info here
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Mathematical Deep Dive -->
+        <section>
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Mathematical Foundations</h2>
+                <p class="text-gray-600 mt-2 max-w-3xl">
+                    Beyond simple addition, the triangle represents the Binomial Coefficients. This section connects the visual position of a number to its algebraic formula and application in polynomial expansion.
+                </p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <!-- Tabs -->
+                <div class="border-b border-gray-200 bg-gray-50 flex overflow-x-auto">
+                    <button onclick="switchTab('tab-coeff')" class="tab-btn active px-6 py-4 text-sm font-medium text-blue-600 border-b-2 border-blue-600 hover:bg-gray-100 focus:outline-none transition-colors">Binomial Coefficients</button>
+                    <button onclick="switchTab('tab-expansion')" class="tab-btn px-6 py-4 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:bg-gray-100 focus:outline-none transition-colors">Binomial Expansion</button>
+                    <button onclick="switchTab('tab-stats')" class="tab-btn px-6 py-4 text-sm font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700 hover:bg-gray-100 focus:outline-none transition-colors">Distribution Analysis</button>
+                </div>
+
+                <!-- Tab Content: Coefficients -->
+                <div id="tab-coeff" class="tab-content p-6 lg:p-8">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-3">The Formula: "n choose k"</h3>
+                            <p class="text-gray-600 text-sm mb-4">
+                                Every number in the triangle corresponds to a combinatorial value $\binom{n}{k}$, representing the number of ways to choose <em>k</em> items from a set of <em>n</em>.
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 font-mono text-sm text-center mb-4">
+                                C(n, k) = n! / (k! * (n-k)!)
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-800"><span class="font-bold">n (Row):</span> The row index (starts at 0).</p>
+                                <p class="text-sm text-gray-800"><span class="font-bold">k (Position):</span> The element index within the row (starts at 0).</p>
+                            </div>
+                            <div class="mt-6 p-4 bg-yellow-50 rounded border border-yellow-100">
+                                <h4 class="text-xs font-bold text-yellow-800 uppercase mb-1">Pascal's Identity</h4>
+                                <p class="text-sm text-yellow-900 italic">
+                                    C(n, k) = C(n-1, k-1) + C(n-1, k)
+                                </p>
+                                <p class="text-xs text-yellow-700 mt-1">This is the mathematical proof of the "sum of two numbers above" rule.</p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl p-6 border border-gray-100 flex flex-col items-center justify-center">
+                            <h4 class="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wide">Selected Row Values</h4>
+                            <div id="coeff-display" class="flex flex-wrap justify-center gap-2">
+                                <!-- JS Populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Expansion -->
+                <div id="tab-expansion" class="tab-content hidden p-6 lg:p-8">
+                    <div class="flex flex-col items-center text-center space-y-6">
+                        <h3 class="text-lg font-bold text-gray-900">Polynomial Expansion</h3>
+                        <p class="text-gray-600 text-sm max-w-2xl">
+                            The coefficients of the $n$-th row tell us exactly how to expand the expression $(a + b)^n$. This is a powerful shortcut in algebra.
+                        </p>
+                        <div class="w-full max-w-3xl bg-gray-900 text-white p-6 rounded-xl shadow-lg font-mono text-lg md:text-xl overflow-x-auto whitespace-nowrap">
+                            <span id="expansion-formula" class="inline-block min-w-full text-center">(a + b)^0 = 1</span>
+                        </div>
+                        <p class="text-xs text-gray-500">
+                            Notice how the powers of 'a' decrease while the powers of 'b' increase.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Stats -->
+                <div id="tab-stats" class="tab-content hidden p-6 lg:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-2">Coefficient Distribution</h3>
+                            <p class="text-sm text-gray-600 mb-4">
+                                As the row number ($n$) increases, the values in the row approximate a <strong>Normal Distribution</strong> (Bell Curve). This connects discrete combinatorics to continuous probability theory.
+                            </p>
+                            <div class="chart-container">
+                                <canvas id="distributionChart"></canvas>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 mb-2">Algorithmic Complexity</h3>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Generating the triangle requires calculating every cell. The total number of cells grows quadratically.
+                                <br><br>
+                                Time Complexity: <strong>O(N²)</strong>
+                                <br>
+                                Space Complexity: <strong>O(N²)</strong> (to store results)
+                            </p>
+                            <div class="chart-container">
+                                <canvas id="complexityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-12 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-400 text-sm">
+            <p>Generated based on source report analysis.</p>
+        </div>
+    </footer>
+
+    <script>
+        // State Management
+        const state = {
+            numRows: 5,
+            triangle: [],
+            currentPattern: 'none'
+        };
+
+        // DOM Elements
+        const elements = {
+            slider: document.getElementById('row-slider'),
+            display: document.getElementById('row-val-display'),
+            container: document.getElementById('triangle-container'),
+            tooltip: document.getElementById('tooltip'),
+            coeffDisplay: document.getElementById('coeff-display'),
+            expansionFormula: document.getElementById('expansion-formula'),
+            tabBtns: document.querySelectorAll('.tab-btn'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            patternBtns: document.querySelectorAll('.pattern-btn')
+        };
+
+        // Charts
+        let distChartInstance = null;
+        let compChartInstance = null;
+
+        // --- Core Logic: Generate Triangle ---
+        function generateTriangle(rows) {
+            let triangle = [];
+            for (let i = 0; i < rows; i++) {
+                let row = Array(i + 1).fill(1);
+                for (let j = 1; j < i; j++) {
+                    row[j] = triangle[i - 1][j - 1] + triangle[i - 1][j];
+                }
+                triangle.push(row);
+            }
+            return triangle;
+        }
+
+        // --- Visualization: Render Pyramid ---
+        function renderTriangle() {
+            elements.container.innerHTML = '';
+            
+            state.triangle.forEach((row, rowIndex) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'flex justify-center gap-1 md:gap-2';
+                
+                row.forEach((val, colIndex) => {
+                    const cell = document.createElement('div');
+                    
+                    // Dynamic sizing based on num rows to prevent overflow
+                    const sizeClass = state.numRows > 10 ? 'w-6 h-6 text-[10px]' : 
+                                      state.numRows > 6 ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm';
+
+                    cell.className = `triangle-cell ${sizeClass} flex items-center justify-center rounded-full bg-blue-100 text-blue-900 border border-blue-200 font-medium cursor-default select-none relative`;
+                    cell.textContent = val;
+                    cell.dataset.r = rowIndex;
+                    cell.dataset.c = colIndex;
+                    cell.dataset.val = val;
+
+                    // Apply Pattern
+                    if (state.currentPattern === 'odds') {
+                        if (val % 2 !== 0) cell.classList.add('pattern-odd');
+                        else cell.classList.add('pattern-even');
+                    }
+
+                    // Hover Events
+                    cell.addEventListener('mouseenter', () => handleHover(rowIndex, colIndex, val, cell));
+                    cell.addEventListener('mouseleave', () => clearHighlights());
+
+                    rowDiv.appendChild(cell);
+                });
+                
+                elements.container.appendChild(rowDiv);
+            });
+        }
+
+        // --- Interaction: Hover & Highlights ---
+        function handleHover(r, c, val, cellElement) {
+            clearHighlights();
+            
+            // Highlight current
+            cellElement.classList.add('highlight-active');
+
+            // Highlight parents
+            if (r > 0) {
+                const prevRow = elements.container.children[r - 1];
+                if (prevRow) {
+                    // Left parent (index c-1)
+                    if (c - 1 >= 0) {
+                        const parent1 = prevRow.children[c - 1];
+                        if (parent1) parent1.classList.add('highlight-parent');
+                    }
+                    // Right parent (index c)
+                    if (c < prevRow.children.length) {
+                        const parent2 = prevRow.children[c];
+                        if (parent2) parent2.classList.add('highlight-parent');
+                    }
+                }
+            }
+
+            // Update Tooltip
+            let tooltipText = `Row ${r}, Pos ${c}`;
+            if (r > 0 && c > 0 && c < r) {
+                const p1 = state.triangle[r-1][c-1];
+                const p2 = state.triangle[r-1][c];
+                tooltipText += ` (${p1} + ${p2} = ${val})`;
+            } else {
+                tooltipText += ` (Edge = 1)`;
+            }
+            
+            elements.tooltip.textContent = tooltipText;
+            elements.tooltip.style.opacity = '1';
+        }
+
+        function clearHighlights() {
+            const cells = document.querySelectorAll('.triangle-cell');
+            cells.forEach(c => {
+                c.classList.remove('highlight-active', 'highlight-parent');
+            });
+            elements.tooltip.style.opacity = '0';
+        }
+
+        // --- Update Analysis Data ---
+        function updateAnalysis() {
+            const currentRowIndex = state.numRows - 1;
+            const currentRowData = state.triangle[currentRowIndex];
+            
+            // 1. Coefficients Tab
+            elements.coeffDisplay.innerHTML = '';
+            currentRowData.forEach((val, idx) => {
+                const span = document.createElement('span');
+                span.className = 'px-3 py-1 bg-white border border-gray-200 rounded-md shadow-sm text-sm font-mono';
+                span.innerHTML = `<span class="text-gray-400 text-xs mr-1">k=${idx}:</span>${val}`;
+                elements.coeffDisplay.appendChild(span);
+            });
+
+            // 2. Expansion Tab
+            let expStr = `(a + b)<sup>${currentRowIndex}</sup> = `;
+            const terms = currentRowData.map((coef, k) => {
+                const powerA = currentRowIndex - k;
+                const powerB = k;
+                
+                let term = '';
+                if (coef !== 1 || (powerA === 0 && powerB === 0)) term += coef; // Show coeff if not 1, or if it's the only thing (row 0)
+                
+                if (powerA > 0) term += `a${powerA > 1 ? `<sup>${powerA}</sup>` : ''}`;
+                if (powerB > 0) term += `b${powerB > 1 ? `<sup>${powerB}</sup>` : ''}`;
+                
+                return term || '1'; // Fallback for edge cases
+            });
+            elements.expansionFormula.innerHTML = expStr + terms.join(' + ');
+
+            // 3. Charts
+            updateCharts(currentRowData);
+        }
+
+        // --- Charts Implementation ---
+        function initCharts() {
+            // Distribution Chart
+            const ctxDist = document.getElementById('distributionChart').getContext('2d');
+            distChartInstance = new Chart(ctxDist, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Coefficient Value',
+                        data: [],
+                        backgroundColor: '#93C5FD',
+                        borderRadius: 4,
+                        hoverBackgroundColor: '#2563EB'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Complexity Chart
+            const ctxComp = document.getElementById('complexityChart').getContext('2d');
+            compChartInstance = new Chart(ctxComp, {
+                type: 'line',
+                data: {
+                    labels: [1, 5, 10, 15, 20, 25, 30],
+                    datasets: [{
+                        label: 'Total Cells (Sum 1 to N)',
+                        data: [1, 15, 55, 120, 210, 325, 465],
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true }
+                    },
+                    scales: {
+                        y: { 
+                            title: { display: true, text: 'Total Operations' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts(data) {
+            // Update Dist Chart
+            distChartInstance.data.labels = data.map((_, i) => `k=${i}`);
+            distChartInstance.data.datasets[0].data = data;
+            distChartInstance.update();
+        }
+
+        // --- Event Listeners ---
+        function handleSliderChange(e) {
+            const val = parseInt(e.target.value);
+            state.numRows = val;
+            elements.display.textContent = val;
+            state.triangle = generateTriangle(val);
+            renderTriangle();
+            updateAnalysis();
+        }
+
+        function switchTab(tabId) {
+            // Buttons
+            elements.tabBtns.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(tabId)) {
+                    btn.classList.add('text-blue-600', 'border-blue-600', 'active');
+                    btn.classList.remove('text-gray-500', 'border-transparent');
+                } else {
+                    btn.classList.remove('text-blue-600', 'border-blue-600', 'active');
+                    btn.classList.add('text-gray-500', 'border-transparent');
+                }
+            });
+
+            // Content
+            elements.tabContents.forEach(content => {
+                if(content.id === tabId) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        window.setPattern = function(type) {
+            state.currentPattern = type;
+            // Update buttons
+            elements.patternBtns.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(type)) {
+                    btn.classList.remove('bg-white', 'text-gray-600', 'border-gray-200');
+                    btn.classList.add('bg-gray-900', 'text-white', 'border-gray-300');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-600', 'border-gray-200');
+                    btn.classList.remove('bg-gray-900', 'text-white', 'border-gray-300');
+                }
+            });
+            renderTriangle();
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            elements.slider.addEventListener('input', handleSliderChange);
+            
+            // Initial Render
+            initCharts();
+            state.triangle = generateTriangle(state.numRows);
+            renderTriangle();
+            updateAnalysis();
+        });
+
+    </script>
+</body>
+</html>
